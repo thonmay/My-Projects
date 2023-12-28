@@ -1,0 +1,258 @@
+#include <bits/stdc++.h>
+#include <raylib.h>
+#include<raymath.h>
+using namespace std;
+
+Color green = {175, 204, 96, 255};
+Color darkgreen = {43, 51, 24, 255};
+Color red  = {200, 0, 20, 210};
+Color pink = {180, 40, 90, 250};
+Color blue = {0, 40, 200, 200};
+Color yellow = {220, 220, 0, 255};
+
+//breaking the screen into smaller cells, we've 25 cells each holding 30px
+float cellSize = 30; 
+float cellCount = 25;
+int offset = 75;  //adding frame
+
+bool ElementInDeque(Vector2 element, deque<Vector2> deque)
+{
+    for(unsigned int i = 0; i < deque.size(); ++i)
+    {
+        if(Vector2Equals(deque[i], element))
+        {
+            return true;
+        }
+    }
+    return false; 
+}
+
+//Food class
+class Food{
+    public: 
+        Vector2 position;      //it stores the (x,y) position efficiently, it represents cells, not pixels
+        Texture2D texture;
+        
+        //Constructor
+        Food(deque<Vector2> snakeBody)
+        {
+            Image image = LoadImage("Graphics/food.png");  //loading the image
+            texture = LoadTextureFromImage(image);        //converting it to 2D, for fast rendaring
+            UnloadImage(image);                           //deleting image 
+            position = GenerateRandomPositon(snakeBody);
+        }
+        
+        //Destructor
+        ~Food()
+        {
+            UnloadTexture(texture); //freing up memomry
+        }
+        
+        //drawing Food 
+        void DrawFood()
+        {
+            //drawing a rectengle as the Food
+            DrawTexture(texture, offset + position.x * cellSize, offset + position.y * cellSize, WHITE);
+            //DrawRectangle(position.x * cellSize, position.y * cellSize, cellSize, cellSize, red);
+        }
+
+        Vector2 GenerateRandomCell()
+        {
+            float x = GetRandomValue(0, cellCount - 1);
+            float y = GetRandomValue(0, cellCount - 1);
+            return Vector2{x, y};
+        }
+
+        //randomising Food position
+        Vector2 GenerateRandomPositon(deque<Vector2> snakeBody)
+        {
+            Vector2 position = GenerateRandomCell();            
+            
+            while(ElementInDeque(position, snakeBody))
+            {
+                position = GenerateRandomCell(); 
+            }
+            return position;
+        }
+
+
+
+};
+
+//creating the Snake
+class Snake
+{
+    public:
+        //initialising snake body with 3 cells, using deque
+        deque<Vector2> body { Vector2{6, 9}, Vector2{5, 9}, Vector2{4, 9} };
+        Vector2 direction = {1, 0};  
+        bool Addsegment = false;
+
+        void DrawSnake()
+        {
+            for(unsigned int i = 0; i < body.size(); ++i)
+            {
+                float x = body[i].x;
+                float y = body[i].y;
+                Rectangle segment = Rectangle { offset + x * cellSize, offset + y * cellSize , cellSize, cellSize};
+                DrawRectangleRounded(segment, 0.3, 3, yellow);   //to draw rounded rectangle
+            
+            }
+        }
+
+        void UpdatePosition()
+        {
+
+            if(Addsegment == true)
+            {
+                body.push_front(Vector2Add(body[0], direction));
+                Addsegment = false;
+            }
+            else
+            { 
+                //remove last element
+                body.pop_back();
+                //adding at the beginning
+                body.push_front(Vector2Add(body[0], direction));
+            }
+            
+        }
+
+        void Reset()
+        {
+            body = { Vector2{6, 9}, Vector2{5, 9}, Vector2{4, 9} };
+            direction = {1, 0};
+        }
+
+};
+
+//storing game objects for better maintainability and promote reusilibility
+class Game
+{
+    public:
+        Snake snake = Snake();
+        Food food = Food(snake.body);
+        bool Runnning = true;
+        int score = 0;
+
+
+        void Draw()
+        {
+            snake.DrawSnake();
+            food.DrawFood();
+        }
+
+        void UpdatePosition()
+        {
+
+            if(Runnning == true)
+            
+            {
+                snake.UpdatePosition();
+                CheckCollisionWithFood();
+                CheckCollisionWithWalls();
+                CheckCollisionWithBody();
+
+            }
+            
+        }
+
+        void CheckCollisionWithFood()
+        {
+            if(Vector2Equals(snake.body[0], food.position))
+            {
+                food.position = food.GenerateRandomPositon(snake.body);
+                snake.Addsegment = true;
+                score++;
+                
+            }
+        }
+
+        void CheckCollisionWithWalls()
+        {
+            if(snake.body[0].x == cellCount || snake.body[0].x == -1)
+            {
+                GameOver();
+            }
+            if(snake.body[0].y == cellCount || snake.body[0].y == -1)
+            {
+                GameOver();
+            }
+        }
+
+        void CheckCollisionWithBody()
+        {
+            deque<Vector2> headlessBody = snake.body; 
+            headlessBody.pop_front();          //removing the head
+
+            if(ElementInDeque(snake.body[0], headlessBody ))
+            {
+                GameOver();
+            }
+        }
+
+        void GameOver()
+        {
+            snake.Reset();
+            food.position = food.GenerateRandomPositon(snake.body);
+            Runnning = false;
+            score = 0;
+
+        }
+
+
+
+};
+
+int main () {
+
+    //game window
+    InitWindow(2 * offset + cellCount * cellSize, 2 * offset + cellSize * cellCount, "Snake Game");   
+
+    //game speed
+    SetTargetFPS(10);   
+
+    Game game = Game();
+
+
+    //game loop
+    while(WindowShouldClose() == false)
+    {   
+        //drawing
+        BeginDrawing();             
+        ClearBackground(pink);         //it'll fill the window
+        DrawRectangleLinesEx(Rectangle{(float) offset -5, (float) offset -5, (float) cellCount * cellSize +10, (float) cellCount * cellSize +10}, 5, blue);
+        DrawText("Snake Game", 60 , 15, 60, green);   //Title
+        DrawText(TextFormat("Score:%i", game.score), 620 , 20 , 50, green);  //Score
+        game.Draw();
+        game.UpdatePosition();
+
+        EndDrawing(); 
+        
+        //Controls(keyboard keys- UDRL)
+        if(IsKeyPressed(KEY_UP) && game.snake.direction.y != 1)
+        {
+            game.snake.direction = {0, -1};
+            game.Runnning = true;
+        }
+        if(IsKeyPressed(KEY_DOWN) && game.snake.direction.y != -1)
+        {
+            game.snake.direction = {0, 1};
+            game.Runnning = true;
+        }
+        if(IsKeyPressed(KEY_RIGHT) && game.snake.direction.x != -1)
+        {
+            game.snake.direction = {1, 0};
+            game.Runnning = true;
+        }
+        if(IsKeyPressed(KEY_LEFT) && game.snake.direction.x != 1)
+        {
+            game.snake.direction = {-1, 0};
+            game.Runnning = true;
+        }
+ 
+    }
+
+    CloseWindow(); //closing game window
+    return 0;
+}
