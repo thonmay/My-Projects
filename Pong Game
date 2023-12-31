@@ -8,18 +8,24 @@ Color yellow = {255, 0, 255, 255};
 const int game_height = 800;
 const int game_width = 1280;
 
+
+int score = 0;
+int ai_score = 0;
+
 class Ball
 {
+    
     public:
         float x;
         float y;
         int speed_x;
         int speed_y;
         int radius;
+        int life;
 
         Ball()
         {
-
+            life = 0;
         }
 
         void Draw()
@@ -40,10 +46,17 @@ class Ball
             {
                 speed_y = speed_y * -1;
             }
-            if(x + radius > 1280 || x - radius < 0)
+            if(x + radius > game_width)
             {
+                score++;
                 speed_x = speed_x * -1;
             }
+            if( x - radius < 0)
+            {   
+                ai_score++;
+                speed_x = speed_x * -1;
+            }
+            
         }
 
         
@@ -51,6 +64,19 @@ class Ball
 
 class Paddle
 {
+    protected:
+        void Limit()
+        {
+            if(y <= 0)
+            {
+                y = 0;
+            }
+            if( y + height >= game_height)
+            {
+                y = game_height - height;
+            }
+        }
+    
     public:
         float x;
         float y;
@@ -92,44 +118,69 @@ class AI_Paddle: public Paddle
             {
                 y = y + speed;
             } 
-            if(y <= 0)
-            {
-                y = 0;
-            }
-            if( y + height >= game_height)
-            {
-                y = game_height - height;
-            }   
+            
+            Limit();   
                 
         }
         
 };
 
+
+class Game
+{
+    public:
+        Ball ball;
+        Paddle paddle;
+        AI_Paddle aipaddle;
+
+
+
+        void Draw()
+        {
+            ball.Draw();
+            paddle.Draw();
+            aipaddle.Draw();
+
+        }
+
+        void Movement()
+        {
+            ball.Movement();
+            paddle.Movement();
+            aipaddle.Movement(ball.y);
+            ball.CollisionWithEdeges();
+
+        }
+
+
+};
+
 int main () {
     
+    Game game;
 
-    Ball ball;
-    ball.x = game_width/2;
-    ball.y = game_height/2;
-    ball.radius = 18;
-    ball.speed_x = 7;
-    ball.speed_y = 5;
+    //for Ball
+    game.ball.x = game_width/2;
+    game.ball.y = game_height/2;
+    game.ball.radius = 18;
+    game.ball.speed_x = 7;
+    game.ball.speed_y = 5;
 
-    Paddle paddle;
-    paddle.width = 30;
-    paddle.height = 120;
-    paddle.speed = 50;
-    paddle.x = 10;
-    paddle.y = game_height/2 - paddle.height/2;
+    //for Paddle
+    game.paddle.width = 30;
+    game.paddle.height = 120;
+    game.paddle.speed = 50;
+    game.paddle.x = 10;
+    game.paddle.y = game_height/2 - game.paddle.height/2;
 
-    AI_Paddle aipaddle;
-    aipaddle.width = 30;
-    aipaddle.height = 120;
-    aipaddle.x = game_width - aipaddle.width - 10;
-    aipaddle.y = game_height/2 - aipaddle.height/2;
-    aipaddle.speed = 10;
+    //for AI paddle
+    game.aipaddle.width = 30;
+    game.aipaddle.height = 120;
+    game.aipaddle.x = game_width - game.aipaddle.width - 10;
+    game.aipaddle.y = game_height/2 - game.aipaddle.height/2;
+    game.aipaddle.speed = 10;
     
-    
+
     //Game window/screen
     InitWindow(game_width, game_height, "Pong Game");
     //Setting the Speed
@@ -140,32 +191,29 @@ int main () {
     {
 
         //Movement
-        ball.Movement();
-        ball.CollisionWithEdeges();
-        paddle.Movement();
-        aipaddle.Movement(ball.y);
-
-        //Checking Collisions with Ball & Paddlel
-        if(CheckCollisionCircleRec(Vector2{ball.x, ball.y}, ball.radius, Rectangle{paddle.x, paddle.y, (float) paddle.width, (float) paddle.height}))
+        game.Movement();
+        
+        if(CheckCollisionCircleRec(Vector2{game.ball.x, game.ball.y}, game.ball.radius, Rectangle{game.paddle.x, game.paddle.y, (float) game.paddle.width, (float) game.paddle.height}))
         {
-            ball.speed_x = ball.speed_x * -1;
+            game.ball.speed_x = game.ball.speed_x * -1;
         }
-        if(CheckCollisionCircleRec(Vector2{ball.x, ball.y}, ball.radius, Rectangle{aipaddle.x, aipaddle.y, (float) aipaddle.width, (float) aipaddle.height}))
+        if(CheckCollisionCircleRec(Vector2{game.ball.x, game.ball.y}, game.ball.radius, Rectangle{game.aipaddle.x, game.aipaddle.y, (float) game.aipaddle.width, (float) game.aipaddle.height}))
         {
-            ball.speed_x = ball.speed_x * -1;
+            game.ball.speed_x = game.ball.speed_x * -1;
         }
 
         //Drawing
         ClearBackground(blue);  //clearing BG before drawing 
-        BeginDrawing();
-        ball.Draw();
-        DrawLine(game_width/2, 0, game_width/2, game_height, WHITE); //Drawing the line
-        //Dawing Paddles
-        paddle.Draw(); 
-        aipaddle.Draw(); 
         
+        BeginDrawing();
+        DrawText("Pong Game", 20, 20, 50, green);   //Title
+        DrawText(TextFormat("Score: %i", score), 400 , 20 , 40, green);  //Score
+        DrawText(TextFormat("AI Score: %i", ai_score ), 740 , 20 , 40, green);  //Score
+        DrawLine(game_width/2, 0, game_width/2, game_height, WHITE); //Drawing the line 
+        DrawCircle(680, 400, 25, green);
+        game.Draw();
 
-
+        
         EndDrawing();
     }
 
